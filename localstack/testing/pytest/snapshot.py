@@ -16,6 +16,7 @@ from localstack.testing.pytest.fixtures import (  # TODO(!) fix. shouldn't impor
     _client,
 )
 from localstack.testing.snapshots import SnapshotAssertionError, SnapshotSession
+from localstack.testing.snapshots.report import render_diff
 from localstack.testing.snapshots.transformer import RegexTransformer
 from localstack.testing.snapshots.transformer_utility import SNAPSHOT_BASIC_TRANSFORMER
 
@@ -44,7 +45,7 @@ def pytest_runtest_makereport(item: Item, call: CallInfo[None]) -> Optional[Test
         for res in err.result:
             if not res:
                 error_report = f"{error_report}Match failed for '{res.key}':\n{json.dumps(json.loads(res.result.to_json()), indent=2)}\n\n"
-        report.longrepr = error_report
+        report.longrepr = "\n".join([str(render_diff(r)) for r in err.result])
     return report
 
 
