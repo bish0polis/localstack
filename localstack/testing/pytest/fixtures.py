@@ -723,6 +723,33 @@ def kms_create_key(kms_client):
         except Exception as e:
             LOG.debug("error cleaning up KMS key %s: %s", key_id, e)
 
+# kms_create_key fixture is used here not just to be able to create aliases without a key specified,
+# but also to make sure that kms_create_key gets executed before and teared down after kms_create_alias -
+# to make sure that we clean up aliases before keys get cleaned up.
+@pytest.fixture()
+def kms_create_alias(kms_client, kms_create_key):
+    aliases = []
+
+    def _create_alias(**kwargs):
+        if "AliasName" not in kwargs:
+            kwargs["AliasName"] = f"alias/{short_uid()}"
+        if "TargetKeyId" not in kwargs:
+            # We use key ARN instead of key ID here, as ARN is allowed instead of key ID in alias creation
+            # and because extracting key ID from key ARN is easy:
+            #   key_id = key_arn.split(":key/")[1]
+            kwargs["TargetKeyId"] = kms_create_key()["KeyId"]
+        aliases.append(kwargs["AliasName"])
+        kms_client.create_alias(**kwargs)
+        return kwargs["AliasName"]
+
+    yield _create_alias
+
+    for alias in aliases:
+        try:
+            kms_client.delete_alias(AliasName=alias)
+        except Exception as e:
+            LOG.debug("error cleaning up KMS alias %s: %s", alias, e)
+
 
 @pytest.fixture
 def kms_key(kms_create_key):

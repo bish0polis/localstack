@@ -220,3 +220,23 @@ class TestKMS:
 
         response = kms_client.list_aliases(KeyId=comparison_key["KeyId"])
         assert len(response["Aliases"]) == 0
+
+    # Key ARNs, key IDs, aliases of keys and ARNs of those aliases are supposed to work.
+    def test_all_types_of_key_id_can_be_used_for_encryption(self, kms_client, kms_create_key, kms_create_alias):
+        def get_alias_arn_by_alias_name(kms_client, alias_name):
+            # list_aliases returns a paginated list, but we assume here that everything fits on one page
+            for alias_list_entry in kms_client.list_aliases(KeyId=key_id)["Aliases"]:
+                if alias_list_entry["AliasName"] == alias_name:
+                    return alias_list_entry["AliasArn"]
+            return
+
+        key_metadata = kms_create_key()
+        key_arn = key_metadata["Arn"]
+        key_id = key_metadata["KeyId"]
+        alias_name = kms_create_alias(TargetKeyId=key_id)
+        alias_arn = get_alias_arn_by_alias_name(kms_client, alias_name)
+        assert alias_arn
+        kms_client.encrypt(KeyId=key_arn, Plaintext="encrypt-me")
+        kms_client.encrypt(KeyId=key_id, Plaintext="encrypt-me")
+        kms_client.encrypt(KeyId=alias_arn, Plaintext="encrypt-me")
+        kms_client.encrypt(KeyId=alias_name, Plaintext="encrypt-me")
